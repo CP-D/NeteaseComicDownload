@@ -3,7 +3,7 @@
 """
 python netease.py number [start]
   -- number : The number at the end of the URL where your comic is located.
-  -- start : Download will start from the specified chapter. The default value of "start" is 1.
+  -- start : Download will start from the specified chapter. The default value is 1.
 Here is an example:
 If you want to download comic on https://manhua.163.com/source/4499978832940093552 from chapter 10 to the end,
 you can execute "python netease.py 4499978832940093552 10".
@@ -16,6 +16,20 @@ from selenium import webdriver
 import time
 import os
 import sys
+import threading
+
+class downloadThread(threading.Thread):
+    def __init__(self, url, dir, fname):
+        self.url = url
+        self.dir = dir
+        self.fname = fname
+        threading.Thread.__init__(self)
+
+    def run(self):
+        dir_trans = self.dir.replace(" ", "\\ ").replace("(", "\\(").replace(")", "\\)")
+        urllib.urlretrieve(self.url, self.dir + self.fname + ".webp")
+        os.system('dwebp ' + dir_trans + self.fname + ".webp -o " + dir_trans + self.fname + ".jpg")
+        os.remove(self.dir + self.fname + ".webp")
 
 if __name__ == "__main__":
     arg_len = len(sys.argv)
@@ -28,10 +42,13 @@ if __name__ == "__main__":
     driver = webdriver.Chrome()
     driver.get(url)
     time.sleep(1)
-    driver.find_element_by_class_name("j-toggle-order").click()
-    time.sleep(1)
-    driver.find_element_by_class_name("j-load-more-button").click()
-    time.sleep(1)
+    try:
+        driver.find_element_by_class_name("j-toggle-order").click()
+        time.sleep(1)
+        driver.find_element_by_class_name("j-load-more-button").click()
+        time.sleep(1)
+    except:
+        pass
 
     html = driver.page_source
     bs = BeautifulSoup(html, "html.parser")
@@ -61,31 +78,24 @@ if __name__ == "__main__":
         dir = title + "/" + chapter_title
         if not os.path.exists(dir):
             os.makedirs(dir)
-        dir_trans = dir.replace(" ", "\\ ").replace("(", "\\(").replace(")", "\\)")
         while True:
             driver.get("https://manhua.163.com" + chapter['href'] + "#scale=7@imgIndex=" + str(index))
             time.sleep(1)
             html = driver.page_source
             bs = BeautifulSoup(html, "html.parser")
 
-
             rightbox = bs.find("div", {'class': 'img-box-rightin'})
             if rightbox != None:
                 rightimg = rightbox.find("img")['src']
-                urllib.urlretrieve(rightimg, "./" + dir + "/" + str(index) + ".webp")
-                os.system('dwebp ' + "./" + dir_trans + "/" + str(index) + ".webp -o " + "./" + dir_trans + "/" + str(index) + ".jpg")
-                os.remove("./" + dir + "/" + str(index) + ".webp")
+                downloadThread(rightimg, "./" + dir + "/", str(index)).start()
                 index = index + 1
 
             leftbox = bs.find("div", {'class': 'img-box-leftin'})
             if leftbox != None:
                 leftimg = leftbox.find("img")['src']
-                urllib.urlretrieve(leftimg, "./" + dir + "/" + str(index) + ".webp")
-                os.system('dwebp ' + "./" + dir_trans + "/" + str(index) + ".webp -o " + "./" + dir_trans + "/" + str(index) + ".jpg")
-                os.remove("./" + dir + "/" + str(index) + ".webp")
+                downloadThread(leftimg, "./" + dir + "/", str(index)).start()
                 index = index + 1
             else:
                 break
 
-    print "Download Finished..."
     driver.close()
