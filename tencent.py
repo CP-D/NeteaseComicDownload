@@ -9,13 +9,13 @@ from bs4 import BeautifulSoup
 
 parser = argparse.ArgumentParser(description='Tecent comic download.')
 parser.add_argument('--id', type=str, default='626438')
-parser.add_argument('--start', type=int, default=109)
+parser.add_argument('--start', type=int, default=1)
 parser.add_argument('--end', type=int, default=0)
 args = parser.parse_args()
 url = "https://dm.vip.qq.com/club/client/ipadComic/html/large-scale/comic/detail.html?id="+args.id
 
 # open the website
-driver = webdriver.Firefox()
+driver = webdriver.Chrome()
 driver.get(url)
 time.sleep(1)
 
@@ -31,15 +31,20 @@ n = -1
 while True:
     n += 1
     try:
+        time.sleep(1)
         nav = driver.find_elements_by_class_name("swiper-slide")[n]
     except:
         print("Finish.")
         exit(0)
     if nav.tag_name != "li":
         continue
-    nav.click()
-    first_chapter = int(nav.text.split('-')[0])
-    last_chapter = int(nav.text.split('-')[1])
+    try:
+        nav.click()
+        first_chapter = int(nav.text.split('-')[0])
+        last_chapter = int(nav.text.split('-')[1])
+    except:
+        first_chapter = 1
+        last_chapter = None
 
     i = -1
     while True:
@@ -47,30 +52,46 @@ while True:
         chapter = first_chapter + i
         if chapter < args.start:
             continue
-        if chapter > last_chapter:
+        if last_chapter is not None and chapter > last_chapter:
             break
+        time.sleep(1)
         current_item = driver.find_elements_by_class_name("current")
         for item in current_item:
             if item.tag_name == 'ul':
                 chapter_box = item
         chapter_list = chapter_box.find_elements_by_tag_name("li")
+        if last_chapter is None:
+            last_chapter = len(chapter_list)
         if chapter_list[i].get_attribute("class") in ["pay", "free"]:
             print("You haven't paid for chapter {:d}.".format(chapter))
             continue
 
         # goto chapter page and scroll to the bottom
-        chapter_list[i].find_element_by_tag_name("span").click()
+        chapter_span = chapter_list[i].find_element_by_tag_name("span")
+        chapter_span.click()
         time.sleep(1)
         img_list = driver.find_element_by_class_name("reader-content").find_elements_by_tag_name("li")
         img_num = len(img_list)
         print("Scrolling down chapter {:d}".format(chapter))
+        curr_num = 0
+        no_update = 0 
         while True:
-            driver.execute_script("window.scrollBy(0,500)")
+            driver.execute_script("window.scrollBy(0,50)")
             html = driver.page_source
             bs = BeautifulSoup(html, "html.parser")
             images = bs.findAll("div", {'style': re.compile('opacity: 1; background-image: url+')})
+            # print(len(images),img_num)
             if len(images) == img_num - 1:
                 break
+            if len(images) == curr_num:
+                no_update += 1
+            else:
+                no_update = 0
+                curr_num = len(images)
+            if no_update == 500:
+                driver.execute_script("window.scrollTo(0,0)")
+                no_update = 0
+            
 
         # start downloading
         print("Start downloading chapter {:d}".format(chapter))
@@ -98,6 +119,3 @@ while True:
         if chapter == args.end - 1:
             print("Finish.")
             exit(0)
-
-
-
