@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from multiprocessing import Process
 
 parser = argparse.ArgumentParser(description='Tecent comic download.')
-parser.add_argument('--id', type=str, default='626438')
+parser.add_argument('--id', type=str, default='623654')
 parser.add_argument('--start', type=int, default=1)
 parser.add_argument('--end', type=int, default=0)
 args = parser.parse_args()
@@ -76,7 +76,7 @@ while True:
             continue
 
         # goto chapter page and scroll to the bottom
-        scrollspeed = 60
+        scrollspeed = 600
         thres = 200
         chapter_span = chapter_list[i].find_element_by_tag_name("span")
         chapter_span.click()
@@ -92,11 +92,13 @@ while True:
         print("Scrolling down chapter {:d}".format(chapter))
         curr_num = 0
         no_update = 0
+        sleeptime=0.1
         while True:
             driver.execute_script("window.scrollBy(0, {:d})".format(scrollspeed))
             html = driver.page_source
             bs = BeautifulSoup(html, "html.parser")
             images = bs.findAll("div", {'style': re.compile('opacity: 1; background-image: url+')})
+            time.sleep(sleeptime)
             if len(images) == img_num - 1:
                 break
             if len(images) == curr_num:
@@ -105,9 +107,15 @@ while True:
                 no_update = 0
                 curr_num = len(images)
             if no_update == thres:
+                buttons = driver.find_elements_by_class_name("yellow-btn")
+                for button in buttons:
+                    if button.text == "重新加载":
+                        button.click()
+                        time.sleep(1)
                 no_update = 0
                 thres *= 3
-                scrollspeed //= -2
+                sleeptime *= 2
+                scrollspeed *= -1
                 print("Scroll again.")
 
 
@@ -120,16 +128,16 @@ while True:
             process_list = []
             if not error:
                 try:
-                    os.mkdir("{:03d}".format(chapter))
+                    os.mkdir("{:04d}".format(chapter))
                 except:
-                    os.removedirs("{:03d}".format(chapter))
-                    shutil.rmtree("{:03d}".format(chapter))
+                    os.removedirs("{:04d}".format(chapter))
+                    shutil.rmtree("{:04d}".format(chapter))
             for j, img in enumerate(images):
                 if j in success_lst:
                     continue
                 style = img['style']
                 img_url = style[style.find('"')+1:style.rfind('"')]
-                fname = "{:03d}/{:03d}_{:02d}.jpg".format(chapter,chapter,j+1)
+                fname = "{:04d}/{:04d}_{:02d}.jpg".format(chapter,chapter,j+1)
                 p = Process(target=imgdownload, args=(img_url, fname))
                 p.daemon = True
                 p.start()
@@ -142,7 +150,7 @@ while True:
                     p.terminate()
                     error = True
                     timeout_ = 1
-                    print("{:03d}/{:03d}_{:02d}.jpg download time out. Try again.".format(chapter,chapter,j+1))
+                    print("{:04d}/{:04d}_{:02d}.jpg download time out. Try again.".format(chapter,chapter,j+1))
                 else:
                     success_lst.append(j)
             if not error:
