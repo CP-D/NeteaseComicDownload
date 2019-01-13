@@ -10,7 +10,7 @@ from multiprocessing import Process
 
 parser = argparse.ArgumentParser(description='Tecent comic download.')
 parser.add_argument('--id', type=str, default='623654')
-parser.add_argument('--start', type=int, default=1026)
+parser.add_argument('--start', type=int, default=1)
 parser.add_argument('--end', type=int, default=0)
 args = parser.parse_args()
 url = "https://dm.vip.qq.com/club/client/ipadComic/html/large-scale/comic/detail.html?id="+args.id
